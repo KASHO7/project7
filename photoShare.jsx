@@ -1,33 +1,46 @@
-import React from 'react';
-import ReactDOM from 'react-dom';
-import {
-  HashRouter, Route, Switch
-} from 'react-router-dom';
-import {
-  Grid, Paper
-} from '@material-ui/core';
-import './styles/main.css';
-
-// import necessary components
-import TopBar from './components/topBar/TopBar';
-import UserDetail from './components/userDetail/userDetail';
-import UserList from './components/userList/userList';
-import UserPhotos from './components/userPhotos/userPhotos';
-//import axios from 'axios';
+import React from "react";
+import ReactDOM from "react-dom";
+import { HashRouter, Route, Switch, Redirect } from "react-router-dom";
+import { Grid, Paper } from "@material-ui/core";
+import TopBar from "./components/topBar/TopBar";
+import UserList from "./components/userList/UserList";
+import LoginRegister from './components/loginRegister/loginRegister';
+import UserDetail from "./components/userDetail/UserDetail";
+import UserPhotos from "./components/userPhotos/UserPhotos";
+import axios from 'axios';
 
 class PhotoShare extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      view: "Welcome to the photosharing app!"
+      view: "Home",
+      isLoggedIn: false,
+      current_user: null,
     };
-    // this.changeView = this.changeView.bind(this);
   }
 
-  changeView = (newView) => {
-    this.setState({ view: newView});
+  componentDidMount() {
+    this.checkLoggedIn();
+  }
+
+  checkLoggedIn() {
+    axios.get("/admin/currentUser")
+        .then(response => {
+          const user = response.data.user;
+          this.setState({ isLoggedIn: true, current_user: user });
+        })
+        .catch(err => {
+          this.setState({ isLoggedIn: false, current_user: null });
+        });
+  }
+
+  changeView = (newView, name) => {
+    this.setState({ view: newView + (name ? name : "") });
   };
 
+  changeLoggedIn = (newUser) => {
+    this.setState({ current_user: newUser, isLoggedIn: true });
+  };
 
   render() {
     return (
@@ -35,24 +48,52 @@ class PhotoShare extends React.Component {
           <div>
             <Grid container spacing={8}>
               <Grid item xs={12}>
-                <TopBar changeView={this.changeView} view={this.state.view}/>
+                <TopBar
+                    view={this.state.view}
+                    changeLoggedIn={this.changeLoggedIn}
+                    current_user={this.state.current_user}
+                />
               </Grid>
-              <div className="main-topbar-buffer"/>
+              <div className="main-topbar-buffer" />
               <Grid item sm={3}>
                 <Paper className="main-grid-item">
-                  <UserList changeView={this.changeView}/>
+                  {this.state.isLoggedIn ? <UserList /> : null}
                 </Paper>
               </Grid>
               <Grid item sm={9}>
                 <Paper className="main-grid-item">
                   <Switch>
-                    <Route path="/users/:userId"
-                           render={ props => <UserDetail {...props} changeView={this.changeView} /> }
+                    <Route
+                        path="/login-register"
+                        render={(props) => (
+                            <LoginRegister
+                                {...props}
+                                changeLoggedIn={this.changeLoggedIn}
+                            />
+                        )}
                     />
-                    <Route path="/photos/:userId"
-                           render ={ props => <UserPhotos {...props} changeView={this.changeView} /> }
-                    />
-                    <Route path="/users" component={UserList}  />
+                    {this.state.isLoggedIn ? (
+                        <>
+                          <Route
+                              path="/users/:userId"
+                              render={(props) => (
+                                  <UserDetail {...props} changeView={this.changeView} />
+                              )}
+                          />
+                          <Route
+                              path="/photos/:userId"
+                              render={(props) => (
+                                  <UserPhotos changeView={this.changeView} {...props} />
+                              )}
+                          />
+                        </>
+                    ) : (
+                        <>
+                          <Redirect exact from="/" to="/login-register" />
+                          <Redirect path="/users/:userId" to="/login-register" />
+                          <Redirect path="/photos/:userId" to="/login-register" />
+                        </>
+                    )}
                   </Switch>
                 </Paper>
               </Grid>
@@ -63,8 +104,4 @@ class PhotoShare extends React.Component {
   }
 }
 
-
-ReactDOM.render(
-    <PhotoShare />,
-    document.getElementById('photoshareapp'),
-);
+ReactDOM.render(<PhotoShare />, document.getElementById("photoshareapp"));

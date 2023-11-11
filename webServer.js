@@ -1,172 +1,150 @@
+"use strict";
 
-var mongoose = require('mongoose');
-mongoose.Promise = require('bluebird');
+var express = require("express");
+var mongoose = require("mongoose");
+var session = require("express-session");
+var bodyParser = require("body-parser");
+var multer = require("multer");
+var cors = require("cors");
+var bcrypt = require("bcrypt");
+var async = require("async");
+var fs = require("fs");
 
-var async = require('async');
-
-var express = require('express');
 var app = express();
 
-var User = require('./schema/user.js');
-var Photo = require('./schema/photo.js');
-var SchemaInfo = require('./schema/schemaInfo.js');
+mongoose.connect("mongodb://localhost/project6", {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
 
-mongoose.connect('mongodb://localhost/project6', { useNewUrlParser: true, useUnifiedTopology: true });
+mongoose.Promise = require("bluebird");
+
+var processFormBody = multer({ storage: multer.memoryStorage() }).single(
+    "uploadedphoto"
+);
 
 app.use(express.static(__dirname));
+app.use(cors());
+app.use(
+    session({
+      secret: "secretKey",
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        maxAge: 1000 * 60 * 60 * 24, // Session will expire after 24 hours
+      },
+    })
+);
+app.use(bodyParser.json());
 
-app.get('/', function (request, response) {
-  response.send('Simple web server of files from ' + __dirname);
-});
+// Load Mongoose schema for User, Photo, and SchemaInfo (assuming you have these schemas defined)
+var User = require("./schema/user.js");
+var Photo = require("./schema/photo.js");
+var SchemaInfo = require("./schema/schemaInfo.js");
 
-app.get('/test/:p1', function (request, response) {
-  console.log('/test called with param1 = ', request.params.p1);
-
-  var param = request.params.p1 || 'info';
-
-  if (param === 'info') {
-    SchemaInfo.find({}, function (err, info) {
-      if (err) {
-        console.error('Doing /user/info error:', err);
-        response.status(500).send(JSON.stringify(err));
-        return;
-      }
-      if (info.length === 0) {
-        response.status(500).send('Missing SchemaInfo');
-        return;
-      }
-
-      console.log('SchemaInfo', info[0]);
-      response.end(JSON.stringify(info[0]));
-    });
-  } else if (param === 'counts') {
-    var collections = [
-      { name: 'user', collection: User },
-      { name: 'photo', collection: Photo },
-      { name: 'schemaInfo', collection: SchemaInfo }
-    ];
-    async.each(collections, function (col, done_callback) {
-      col.collection.countDocuments({}, function (err, count) {
-        col.count = count;
-        done_callback(err);
-      });
-    }, function (err) {
-      if (err) {
-        response.status(500).send(JSON.stringify(err));
-      } else {
-        var obj = {};
-        for (var i = 0; i < collections.length; i++) {
-          obj[collections[i].name] = collections[i].count;
-        }
-        response.end(JSON.stringify(obj));
-      }
-    });
+// Middleware to check if the user is authenticated
+function isAuthenticated(request, response, next) {
+  if (request.session.user_id) {
+    next();
   } else {
-    response.status(400).send('Bad param ' + param);
+    response.status(401).send("Unauthorized");
   }
-});
+}
 
-app.get('/user/list', function (request, response) {
-  User.find({}, function (err, users) {
-    let newUsers = users;
-    async.forEachOf(users, function (user, index, done_callback) {
-      let { _id, first_name, last_name } = user;
-      newUsers[index] = { _id, first_name, last_name };
-      done_callback();
-    }, function (err1) {
-      if (err1) {
-        response.status(500).send(JSON.stringify(err1));
+// Handle user login
+app.post("/admin/login", function (request, response) {
+  var loginName = request.body.login_name;
+  var password = request.body.password;
+
+  User.findOne({ login_name: loginName }, function (err, user) {
+    if (err || !user) {
+      response.status(400).send("Invalid login credentials");
+      return;
+    }
+
+    bcrypt.compare(password, user.password, function (err, result) {
+      if (result) {
+        request.session.user_id = user._id;
+        response.status(200).json({
+          message: "Login successful",
+          user: {
+            _id: user._id,
+            first_name: user.first_name,
+            last_name: user.last_name,
+          },
+        });
       } else {
-        response.status(200).send(newUsers);
+        response.status(400).send("Invalid login credentials");
       }
     });
   });
 });
 
-
-app.get("/user/:id", function (request, response) {
-  const id = request.params.id;
-  User.find({"_id": {$eq: id}},{__v:0}, function (err, user) {
+// Handle user logout
+app.post("/admin/logout", isAuthenticated, function (request, response) {
+  request.session.destroy(function (err) {
     if (err) {
-      console.error("Error in /user/:id", err);
-      response.status(500).send(JSON.stringify(err));
-      return;
+      response.status(500).send("Internal Server Error");
+    } else {
+      response.status(200).json({ message: "Logout successful" });
     }
-    if (user.length === 0) {
-
-      response.status(400).send();
-      return;
-    }
-    // We got the object - return it in JSON format.
-    response.end(JSON.stringify(user[0]));
   });
 });
 
+// Handle user registration
+app.post("/user/register", function (request, response) {
+  var {
+    login_name,
+    password,
+    first_name,
+    last_name,
+    location,
+    description,
+    occupation,
+  } = request.body;
 
-app.get("/photosOfUser/:id", function (request, response) {
-  const id = request.params.id;
-  Photo.aggregate([
-    { "$match":
-          {"user_id": {"$eq": new mongoose.Types.ObjectId(id)}}
-    },
-    { "$addFields": {
-        "comments": { "$ifNull" : [ "$comments", [ ] ] }
-      } },
-    { "$lookup": {
-        "from": "users",
-        "localField": "comments.user_id",
-        "foreignField": "_id",
-        "as": "users"
-      } },
-    { "$addFields": {
-        "comments": {
-          "$map": {
-            "input": "$comments",
-            "in": {
-              "$mergeObjects": [
-                "$$this",
-                { "user": {
-                    "$arrayElemAt": [
-                      "$users",
-                      {
-                        "$indexOfArray": [
-                          "$users._id",
-                          "$$this.user_id"
-                        ]
-                      }
-                    ]
-                  } }
-              ]
-            }
+  bcrypt.hash(password, 10, function (err, hash) {
+    if (err) {
+      response.status(500).send("Internal Server Error");
+      return;
+    }
+
+    User.create(
+        {
+          login_name: login_name,
+          password: hash,
+          first_name: first_name,
+          last_name: last_name,
+          location: location,
+          description: description,
+          occupation: occupation,
+        },
+        function (err, newUser) {
+          if (err) {
+            response.status(400).send("Bad Request");
+          } else {
+            response.status(200).json({
+              message: "Registration successful",
+              user: {
+                _id: newUser._id,
+                first_name: newUser.first_name,
+                last_name: newUser.last_name,
+              },
+            });
           }
         }
-      } },
-    { "$project": {
-        "users": 0,
-        "__v": 0,
-        "comments.__v": 0,
-        "comments.user_id": 0,
-        "comments.user.location": 0,
-        "comments.user.description": 0,
-        "comments.user.occupation": 0,
-        "comments.user.__v": 0
-      } }
-  ], function (err, photos) {
-    if (err) {
-      console.error("Error in /photosOfUser/:id", err);
-      response.status(500).send(JSON.stringify(err));
-      return;
-    }
-    if (photos.length === 0) {
-      response.status(400).send();
-      return;
-    }
-    // We got the object - return it in JSON format.
-    response.end(JSON.stringify(photos));
+    );
   });
 });
+
+// Handle other routes (add your route handlers here)
 
 var server = app.listen(3000, function () {
   var port = server.address().port;
-  console.log('Listening at http://localhost:' + port + ' exporting the directory ' + __dirname);
+  console.log(
+      "Listening at http://localhost:" +
+      port +
+      " exporting the directory " +
+      __dirname
+  );
 });

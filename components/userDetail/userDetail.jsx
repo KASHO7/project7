@@ -1,11 +1,10 @@
-import React from 'react';
-import {
-    Grid, Typography
-} from '@material-ui/core';
+import React from "react";
+import { Grid, Typography, Button } from "@material-ui/core";
+import "./userDetail.css";
 import { Link } from "react-router-dom";
-import './userDetail.css';
-//import fetchModel from "../../lib/fetchModelData";
-import axios from 'axios';
+const axios = require('axios').default;
+
+const DETAILS = "Info about ";
 
 /**
  * Define UserDetail
@@ -13,69 +12,51 @@ import axios from 'axios';
 class UserDetail extends React.Component {
     constructor(props) {
         super(props);
-        this.state={
-            user:undefined
+        this.state = {
+            user: undefined
         };
+        this.fetchUserData(props.match.params.userId);
     }
 
-    componentDidMount = () => {
-        let newUserId = this.props.match.params.userId;
-        console.log(newUserId);
-        axios.get(`http://localhost:3000/user/${newUserId}`)
+    fetchUserData(userId) {
+        axios.get(`/user/${userId}`)
             .then(response => {
-                let newUser = response.data;
-                this.setState({user:newUser});
+                this.setState({ user: response.data });
                 this.props.changeView(
-                    `${newUser.first_name} ${newUser.last_name}`
+                    DETAILS, `${response.data.first_name} ${response.data.last_name}`
                 );
             })
-            .catch(error => {console.log(error);});
-    };
+            .catch(err => console.log(err.response));
+    }
 
-    componentDidUpdate = () => {
-        let newUserId = this.props.match.params.userId;
-        if ((this.state.user && this.state.user._id) !== newUserId) {
-            axios.get(`http://localhost:3000/user/${newUserId}`)
-                .then(response => {
-                    let newUser = response.data;
-                    this.setState({user:newUser});
-                    this.props.changeView(
-                        `${newUser.first_name} ${newUser.last_name}`
-                    );
-                })
-                .catch(error => {console.log(error);});
+    componentDidUpdate(prevProps) {
+        if (prevProps.match.params.userId !== this.props.match.params.userId) {
+            this.fetchUserData(this.props.match.params.userId);
         }
-    };
-
-    componentWillUnmount = () => {
-        this.props.changeView("");
-    };
+    }
 
     render() {
         return this.state.user ? (
-            <Grid
-                container
-                direction="column"
-                justify="space-between"
-                alignItems="flex-start"
-            >
-                <Typography variant="h3" color="inherit">
-                    {`${this.state.user.first_name} ${this.state.user.last_name}`}
-                </Typography>
-                <Typography variant="h5">
-                    Occupation: {`${this.state.user.occupation}`}
-                </Typography>
-                <Typography variant="h5">
-                    Location: {`${this.state.user.location}`}
-                </Typography>
-                <Typography variant="body1">
-                    Description: {`${this.state.user.description}`}
-                </Typography>
-                <Typography variant="h3">
-                    <Link to={`/photos/${this.state.user._id}`}>Photos</Link>
-                </Typography>
+            <Grid container justify="space-evenly" alignItems="center">
+                <Grid item xs={6}>
+                    <Typography variant="h3">
+                        {`${this.state.user.first_name} ${this.state.user.last_name}`}
+                    </Typography>
+                    <Typography variant="h5">
+                        {this.state.user.occupation} <br />
+                        based in {this.state.user.location}
+                    </Typography>
+                    <Typography variant="body1">{this.state.user.description}</Typography>
+                </Grid>
+                <Grid item xs={4}>
+                    <Button variant="contained" size="large">
+                        <Link to={`/photos/${this.state.user._id}`}>See photos</Link>
+                    </Button>
+                </Grid>
             </Grid>
-        ) : <div/>;
+        ) : (
+            <div />
+        );
     }
 }
 

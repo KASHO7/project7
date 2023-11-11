@@ -1,19 +1,9 @@
-import React from 'react';
-import {
-    Divider,
-    List,
-    ListItem,
-    ListItemText,
-}
-    from '@material-ui/core';
+import React from "react";
+import { Divider, List, ListItem, ListItemText } from "@material-ui/core";
 import { Link } from "react-router-dom";
-import './userList.css';
-//import fetchModel from "../../lib/fetchModelData";
+import "./userList.css";
 import axios from 'axios';
 
-/**
- * Define UserList,
- */
 class UserList extends React.Component {
     constructor(props) {
         super(props);
@@ -22,39 +12,41 @@ class UserList extends React.Component {
         };
     }
 
-    componentDidMount = () => {
-        axios.get("http://localhost:3000/user/list")
-            .then((response) => {
-                this.setState({users: response.data});
-                //this.props.changeView("Users List");
-            })
-            .catch((error) => {console.error(error);});
-    };
+    componentDidMount() {
+        this.fetchUsers();
+    }
 
-    componentDidUpdate = (prevProps) => {
+    fetchUsers() {
+        axios.get("/user/list")
+            .then(response => {
+                this.setState({ users: response.data });
+            })
+            .catch(err => console.log(err.response));
+    }
+
+    componentDidUpdate(prevProps) {
         if (prevProps.view !== this.props.view) {
-            // this.setState({view:"User List"});
             this.props.changeView("Users List");
         }
-    };
+    }
 
     render() {
         return this.state.users ? (
             <div>
                 <List component="nav">
-                    {this.state.users.map((user) => {
-                        return (
-                            <Link to={`/users/${user._id}`} key={user._id}>
-                                <ListItem>
-                                    <ListItemText primary={`${user.first_name} ${user.last_name}`} />
-                                </ListItem>
-                                <Divider />
-                            </Link>
-                        );
-                    })}
+                    {this.state.users.map(user => (
+                        <Link to={`/users/${user._id}`} key={user._id}>
+                            <ListItem>
+                                <ListItemText primary={`${user.first_name} ${user.last_name}`} />
+                            </ListItem>
+                            <Divider />
+                        </Link>
+                    ))}
                 </List>
             </div>
-        ) : <div/>;
+        ) : (
+            <div />
+        );
     }
 }
 

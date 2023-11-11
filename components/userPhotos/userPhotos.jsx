@@ -1,11 +1,10 @@
-import React from 'react';
-import {
-    Grid,Card,  CardContent, CardHeader, CardMedia,CardActionArea, Typography
-} from '@material-ui/core';
-import { Link } from "react-router-dom";
-import './userPhotos.css';
-//import fetchModel from "../../lib/fetchModelData";
-import axios from 'axios';
+import React from "react";
+import { Typography, Grid } from "@material-ui/core";
+import "./userPhotos.css";
+import PhotoCard from './PhotoCard';
+const axios = require("axios").default;
+
+const PHOTOS = "Photos of ";
 
 /**
  * Define UserPhotos
@@ -14,95 +13,62 @@ class UserPhotos extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            user:undefined,
-            photos:undefined
+            comment: "",
+            photos: undefined
         };
+        this.userId = props.match.params.userId;
+        this.user = undefined;
+        this.refreshCards = this.refreshCards.bind(this);
+        this.refreshCards();
+        axios
+            .get(`/user/${this.userId}`)
+            .then(response => {
+                this.user = response.data;
+                this.props.changeView(
+                    PHOTOS,
+                    `${this.user.first_name} ${this.user.last_name}`
+                );
+            })
+            .catch(err => console.log(err.response));
     }
 
-    componentDidMount = () => {
-        let userId = this.props.match.params.userId;
-        axios.get(`http://localhost:3000/photosOfUser/${userId}`)
+    refreshCards() {
+        // refresh the photos and the database
+        axios
+            .get(`/photosOfUser/${this.userId}`)
             .then(response => {
-                this.setState({photos: response.data});
+                this.setState({ photos: response.data });
             })
-            .catch(err => {console.error(err);});
-
-        axios.get(`http://localhost:3000/user/${userId}`)
-            .then(response => {
-                this.setState({user: response.data});
-                this.props.changeView(`Photos of ${this.state.user.first_name} ${this.state.user.last_name}`);
-            })
-            .catch(err => {console.log(err);});
-    };
-
-    componentWillUnmount = () => {
-        this.props.changeView("");
-    };
-
-    componentDidUpdate = (prevProps) => {
-        let newUserID = this.props.match.params.userId;
-        if (prevProps.match.params.userId !== newUserID) {
-            let userId = this.props.match.params.userId;
-            axios.get(`http://localhost:3000/photosOfUser/${userId}`)
-                .then(response => {
-                    this.setState({photos: response.data});
-                })
-                .catch(err => {console.error(err);});
-
-            axios.get(`http://localhost:3000/user/${userId}`)
-                .then(response => {
-                    this.setState({user: response.data});
-                    this.props.changeView(`Photos of ${this.state.user.first_name} ${this.state.user.last_name}`);
-                })
-                .catch(err => {console.log(err);});
-        }
-    };
+            .catch(err => {
+                console.log(err.response);
+            });
+    }
 
     render() {
-        return this.state.user ? (
+        return this.user ? (
             <Grid container justify="space-evenly" alignItems="flex-start">
-                {this.state.photos ? this.state.photos.map((photo) => {
-                    return (
-                        <Grid item xs={5} key={photo._id}>
-                            <Card>
-                                <CardActionArea>
-                                    <CardHeader
-                                        title={`${photo.file_name}`}
-                                        subheader={`Creation Time: ${photo.date_time}`}
-                                    />
-                                    <CardMedia
-                                        component="img"
-                                        height="200"
-                                        width="200"
-                                        image={`./images/${photo.file_name}`}
-                                        alt="green iguana"
-                                    />
-                                    <CardContent>
-                                        {photo.comments ? photo.comments.map((comment) => {
-                                            return (
-                                                <Grid container direction="column" key={comment._id}>
-                                                    <Typography variant="body2" color="inherit">
-                                                        {comment.date_time}
-                                                    </Typography>
-                                                    <Typography variant="body2" color="inherit">
-                                                        <Link to={`/users/${comment.user._id}`}>
-                                                            {`${comment.user.first_name} ${comment.user.last_name}`}
-                                                        </Link>
-                                                    </Typography>
-                                                    <Typography variant="body2" color="secondary">
-                                                        {comment.comment}
-                                                    </Typography>
-                                                </Grid>
-                                            );
-                                        }) : <div />}
-                                    </CardContent>
-                                </CardActionArea>
-                            </Card>
+                <Grid item xs={12}>
+                    <Typography variant="h3">
+                        {this.user.first_name} {this.user.last_name}&apos;s photos
+                    </Typography>
+                </Grid>
+                {this.state.photos ? (
+                    this.state.photos.map(photo => (
+                        <Grid item xs={6} key={photo._id}>
+                            <PhotoCard
+                                creator={this.user}
+                                refreshCards={this.refreshCards}
+                                photo={photo}
+                            />
                         </Grid>
-                    );}
-                ) : <div/>}
+                    ))
+                ) : (
+                    <div />
+                )}
             </Grid>
-        ) : <div/>;
+        ) : (
+            <div />
+        );
     }
 }
 
