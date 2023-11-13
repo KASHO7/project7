@@ -1,96 +1,180 @@
 import React from "react";
-import { Grid, AppBar, Toolbar, Typography, Button, Dialog, Input } from "@material-ui/core";
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  Divider,
+  Box,
+  Alert,
+  Snackbar,
+} from "@mui/material";
 import "./TopBar.css";
-const axios = require("axios").default;
+import axios from "axios";
 
+/**
+ * Define TopBar, a React componment of project #5
+ */
 class TopBar extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = {
-            view: this.props.view,
-            uploadDialogOpen: false
-        };
+  constructor(props) {
+    super(props);
+    this.state = {
+      app_info: undefined,
+      photo_upload_show: false,
+      photo_upload_error: false,
+      photo_upload_success: false,
+    };
+    this.handleLogout = this.handleLogout.bind(this);
+    this.handleNewPhoto = this.handleNewPhoto.bind(this);
+  }
+  componentDidMount() {
+    this.handleAppInfoChange();
+  }
+  handleLogout = (user) => {
+    axios
+      .post("/admin/logout")
+      .then((response) => {
+        this.props.changeUser(undefined);
+      })
+      .catch((error) => {
+        this.props.changeUser(undefined);
+        console.log(error);
+      });
+  };
+
+  handleNewPhoto = (e) => {
+    e.preventDefault();
+    if (this.uploadInput.files.length > 0) {
+      const domForm = new FormData();
+      domForm.append("uploadedphoto", this.uploadInput.files[0]);
+      axios
+        .post("/photos/new", domForm)
+        .then((response) => {
+          this.setState({
+            photo_upload_show: true,
+            photo_upload_error: false,
+            photo_upload_success: true,
+          });
+        })
+        .catch((error) => {
+          this.setState({
+            photo_upload_show: true,
+            photo_upload_error: true,
+            photo_upload_success: false,
+          });
+          console.log(error);
+        });
     }
+  };
 
-    componentDidUpdate(prevProps) {
-        if (prevProps.view !== this.props.view) {
-            this.setState({ view: this.props.view });
-        }
+  handleClose = () => {
+    this.setState({
+      photo_upload_show: false,
+      photo_upload_error: false,
+      photo_upload_success: false,
+    });
+  };
+
+  handleAppInfoChange() {
+    const app_info = this.state.app_info;
+    if (app_info === undefined) {
+      axios.get("/test/info").then((response) => {
+        this.setState({
+          app_info: response.data,
+        });
+      });
     }
+  }
 
-    handleLogOut = () => {
-        this.props.changeLoggedIn(undefined);
-    };
-
-    handleUploadButtonClicked = (e) => {
-        e.preventDefault();
-        if (this.uploadInput.files.length > 0) {
-            const domForm = new FormData();
-            domForm.append("uploadedphoto", this.uploadInput.files[0]);
-
-            axios
-                .post("/photos/new", domForm)
-                .then((res) => {
-                    console.log(res);
-                    this.setState({ uploadDialogOpen: false });
-                    window.location.href = `#/photos/${this.props.current_user._id}`;
-                })
-                .catch((err) => console.log(`POST ERR: ${err}`));
-        }
-    };
-
-    handleCloseDialog = () => {
-        this.setState({ uploadDialogOpen: false });
-    };
-
-    uploadButton = () => {
-        this.setState({ uploadDialogOpen: true });
-    };
-
-    render() {
-        return (
-            <AppBar className="main-topbar-buffer" position="absolute">
-                <Toolbar>
-                    {this.props.current_user ? (
-                        <Grid container direction="row" justify="space-between" alignItems="center">
-                            <Grid item>
-                                <Typography variant="h5">{this.state.view}</Typography>
-                            </Grid>
-                            <Grid item>
-                                <Typography variant="h5">Hi {this.props.current_user.first_name}</Typography>
-                            </Grid>
-                            <Grid item>
-                                <Button variant="contained" color="primary" onClick={this.uploadButton}>
-                                    Upload Photo
-                                </Button>
-                                <Dialog open={this.state.uploadDialogOpen} onClose={this.handleCloseDialog}>
-                                    <form onSubmit={this.handleUploadButtonClicked}>
-                                        <label>
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                ref={(domFileRef) => {
-                                                    this.uploadInput = domFileRef;
-                                                }}
-                                            />
-                                        </label>
-                                        <Input color="primary" type="submit" value="Post" />
-                                    </form>
-                                </Dialog>
-                            </Grid>
-                            <Grid item>
-                                <Button onClick={this.handleLogOut} variant="contained">
-                                    Log out
-                                </Button>
-                            </Grid>
-                        </Grid>
-                    ) : (
-                        <Typography variant="h5">Please login</Typography>
-                    )}
-                </Toolbar>
-            </AppBar>
-        );
-    }
+  render() {
+    return this.state.app_info ? (
+      <AppBar className="topbar-appBar" position="absolute">
+        <Toolbar>
+          <Typography
+            variant="h5"
+            component="div"
+            sx={{ flexGrow: 0 }}
+            color="inherit">
+            {this.props.user ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  width: "fit-content",
+                  "& svg": {
+                    m: 1.5,
+                  },
+                  "& hr": {
+                    mx: 0.5,
+                  },
+                }}>
+                <span>{"Hi " + this.props.user.first_name}</span>
+                <Divider orientation="vertical" flexItem />
+                <Button variant="contained" onClick={this.handleLogout}>
+                  Logout
+                </Button>
+                <Divider orientation="vertical" flexItem />
+                <Button component="label" variant="contained">
+                  Add Photo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    ref={(domFileRef) => {
+                      this.uploadInput = domFileRef;
+                    }}
+                    onChange={this.handleNewPhoto}
+                  />
+                </Button>
+                <Snackbar
+                  anchorOrigin={{ vertical: "top", horizontal: "left" }}
+                  open={this.state.photo_upload_show}
+                  autoHideDuration={6000}
+                  onClose={this.handleClose}>
+                  {this.state.photo_upload_success ? (
+                    <Alert
+                      onClose={this.handleClose}
+                      severity="success"
+                      sx={{ width: "100%" }}>
+                      Photo Uploaded
+                    </Alert>
+                  ) : this.state.photo_upload_error ? (
+                    <Alert
+                      onClose={this.handleClose}
+                      severity="error"
+                      sx={{ width: "100%" }}>
+                      Error Uploading Photo
+                    </Alert>
+                  ) : (
+                    <div />
+                  )}
+                </Snackbar>
+              </Box>
+            ) : (
+              "Please Login"
+            )}
+          </Typography>
+          <Typography
+            variant="h5"
+            component="div"
+            sx={{ flexGrow: 1 }}
+            color="inherit"
+            align="center">
+            {this.props.main_content}
+          </Typography>
+          <Typography
+            variant="h5"
+            component="div"
+            sx={{ flexGrow: 0 }}
+            color="inherit">
+            Version: {this.state.app_info.version}
+          </Typography>
+        </Toolbar>
+      </AppBar>
+    ) : (
+      <div />
+    );
+  }
 }
 
 export default TopBar;

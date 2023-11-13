@@ -1,105 +1,119 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import { HashRouter, Route, Switch, Redirect } from "react-router-dom";
-import { Grid, Paper } from "@material-ui/core";
+import { HashRouter, Route, Switch } from "react-router-dom";
+import { Grid, Paper } from "@mui/material";
+import "./styles/main.css";
+
+// import necessary components
+import { Redirect } from "react-router";
 import TopBar from "./components/topBar/TopBar";
-import UserList from "./components/userList/UserList";
-import LoginRegister from './components/loginRegister/loginRegister';
-import UserDetail from "./components/userDetail/UserDetail";
-import UserPhotos from "./components/userPhotos/UserPhotos";
-import axios from 'axios';
+import UserDetail from "./components/userDetail/userDetail";
+import UserList from "./components/userList/userList";
+import UserPhotos from "./components/userPhotos/userPhotos";
+import LoginRegister from "./components/loginRegister/loginRegister";
 
 class PhotoShare extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      view: "Home",
-      isLoggedIn: false,
-      current_user: null,
+      main_content: undefined,
+      user: undefined,
     };
+    this.changeMainContent = this.changeMainContent.bind(this);
+    this.changeUser = this.changeUser.bind(this);
   }
 
-  componentDidMount() {
-    this.checkLoggedIn();
+  userIsLoggedIn() {
+    return this.state.user !== undefined;
   }
-
-  checkLoggedIn() {
-    axios.get("/admin/currentUser")
-        .then(response => {
-          const user = response.data.user;
-          this.setState({ isLoggedIn: true, current_user: user });
-        })
-        .catch(err => {
-          this.setState({ isLoggedIn: false, current_user: null });
-        });
-  }
-
-  changeView = (newView, name) => {
-    this.setState({ view: newView + (name ? name : "") });
+  changeMainContent = (main_content) => {
+    this.setState({ main_content: main_content });
   };
 
-  changeLoggedIn = (newUser) => {
-    this.setState({ current_user: newUser, isLoggedIn: true });
+  changeUser = (user) => {
+    this.setState({ user: user });
+    if (user === undefined) this.changeMainContent(undefined);
   };
 
   render() {
     return (
-        <HashRouter>
-          <div>
-            <Grid container spacing={8}>
-              <Grid item xs={12}>
-                <TopBar
-                    view={this.state.view}
-                    changeLoggedIn={this.changeLoggedIn}
-                    current_user={this.state.current_user}
-                />
-              </Grid>
-              <div className="main-topbar-buffer" />
-              <Grid item sm={3}>
-                <Paper className="main-grid-item">
-                  {this.state.isLoggedIn ? <UserList /> : null}
-                </Paper>
-              </Grid>
-              <Grid item sm={9}>
-                <Paper className="main-grid-item">
-                  <Switch>
-                    <Route
-                        path="/login-register"
-                        render={(props) => (
-                            <LoginRegister
-                                {...props}
-                                changeLoggedIn={this.changeLoggedIn}
-                            />
-                        )}
-                    />
-                    {this.state.isLoggedIn ? (
-                        <>
-                          <Route
-                              path="/users/:userId"
-                              render={(props) => (
-                                  <UserDetail {...props} changeView={this.changeView} />
-                              )}
-                          />
-                          <Route
-                              path="/photos/:userId"
-                              render={(props) => (
-                                  <UserPhotos changeView={this.changeView} {...props} />
-                              )}
-                          />
-                        </>
-                    ) : (
-                        <>
-                          <Redirect exact from="/" to="/login-register" />
-                          <Redirect path="/users/:userId" to="/login-register" />
-                          <Redirect path="/photos/:userId" to="/login-register" />
-                        </>
-                    )}
-                  </Switch>
-                </Paper>
-              </Grid>
+      <HashRouter>
+        <div>
+          <Grid container spacing={8}>
+            <Grid item xs={12}>
+              <TopBar
+                main_content={this.state.main_content}
+                user={this.state.user}
+                changeUser={this.changeUser}
+              />
             </Grid>
-          </div>
-        </HashRouter>
+            <div className="main-topbar-buffer" />
+            <Grid item sm={3}>
+              <Paper className="main-grid-item">
+                {this.userIsLoggedIn() ? <UserList /> : <div></div>}
+              </Paper>
+            </Grid>
+            <Grid item sm={9}>
+              <Paper className="main-grid-item">
+                <Switch>
+                  {this.userIsLoggedIn() ? (
+                    <Route
+                      path="/users/:userId"
+                      render={(props) => (
+                        <UserDetail
+                          {...props}
+                          changeMainContent={this.changeMainContent}
+                        />
+                      )}
+                    />
+                  ) : (
+                    <Redirect path="/users/:userId" to="/login-register" />
+                  )}
+                  {this.userIsLoggedIn() ? (
+                    <Route
+                      path="/photos/:userId"
+                      render={(props) => (
+                        <UserPhotos
+                          {...props}
+                          changeMainContent={this.changeMainContent}
+                        />
+                      )}
+                    />
+                  ) : (
+                    <Redirect path="/photos/:userId" to="/login-register" />
+                  )}
+                  {this.userIsLoggedIn() ? (
+                    <Route path="/" render={() => <div />} />
+                  ) : (
+                    <Route
+                      path="/login-register"
+                      render={(props) => (
+                        <LoginRegister
+                          {...props}
+                          changeUser={this.changeUser}
+                        />
+                      )}
+                    />
+                  )}
+                  {this.userIsLoggedIn() ? (
+                    <Route path="/" render={() => <div />} />
+                  ) : (
+                    <Route
+                      path="/"
+                      render={(props) => (
+                        <LoginRegister
+                          {...props}
+                          changeUser={this.changeUser}
+                        />
+                      )}
+                    />
+                  )}
+                </Switch>
+              </Paper>
+            </Grid>
+          </Grid>
+        </div>
+      </HashRouter>
     );
   }
 }

@@ -1,53 +1,65 @@
 import React from "react";
-import { Divider, List, ListItem, ListItemText } from "@material-ui/core";
-import { Link } from "react-router-dom";
+import { List, ListItemButton, ListItemText } from "@mui/material";
 import "./userList.css";
-import axios from 'axios';
+import axios from "axios";
 
 class UserList extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = {
-            users: undefined
-        };
-    }
+  constructor(props) {
+    super(props);
+    this.state = {
+      users: undefined,
+      user_id: undefined,
+    };
+  }
 
-    componentDidMount() {
-        this.fetchUsers();
-    }
+  componentDidMount() {
+    this.handleUserListChange();
+  }
 
-    fetchUsers() {
-        axios.get("/user/list")
-            .then(response => {
-                this.setState({ users: response.data });
-            })
-            .catch(err => console.log(err.response));
+  componentDidUpdate() {
+    const new_user_id = this.props.match?.params.userId;
+    //console.log(new_user_id);
+    const current_user_id = this.state.user_id;
+    //console.log(current_user_id);
+    if (current_user_id !== new_user_id) {
+      this.handleUserChange(new_user_id);
     }
+  }
 
-    componentDidUpdate(prevProps) {
-        if (prevProps.view !== this.props.view) {
-            this.props.changeView("Users List");
-        }
-    }
+  handleUserChange(user_id) {
+    this.setState({
+      user_id: user_id,
+    });
+  }
 
-    render() {
-        return this.state.users ? (
-            <div>
-                <List component="nav">
-                    {this.state.users.map(user => (
-                        <Link to={`/users/${user._id}`} key={user._id}>
-                            <ListItem>
-                                <ListItemText primary={`${user.first_name} ${user.last_name}`} />
-                            </ListItem>
-                            <Divider />
-                        </Link>
-                    ))}
-                </List>
-            </div>
-        ) : (
-            <div />
-        );
-    }
+  handleUserListChange() {
+    axios.get("/user/list").then((response) => {
+      this.setState({
+        users: response.data,
+      });
+    });
+  }
+
+  render() {
+    return this.state.users ? (
+      <div>
+        <List component="nav">
+          {this.state.users.map((user) => (
+            <ListItemButton
+              selected={this.state.user_id === user._id}
+              key={user._id}
+              divider={true}
+              component="a"
+              href={"#/users/" + user._id}>
+              <ListItemText primary={user.first_name + " " + user.last_name} />
+            </ListItemButton>
+          ))}
+        </List>
+      </div>
+    ) : (
+      <div />
+    );
+  }
 }
 
 export default UserList;

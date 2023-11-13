@@ -1,226 +1,254 @@
 import React from "react";
-import { Grid, Typography, Input, TextField} from "@material-ui/core";
-// import {Visibility, VisibilityOff} from "@material-ui/icons";
+import {
+  Button,
+  Box,
+  TextField,
+  Alert,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Typography,
+} from "@mui/material";
 import axios from "axios";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
+/**
+ * Define TopBar, a React component of project #5
+ */
 class LoginRegister extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = {
-            failedLogin: "",
-            login_name:"",
-            password: "",
-            register_name:"",
-            register_password_1: "",
-            register_password_2: "",
-            failedRegister: "",
-            first_name: "",
-            last_name: "",
-            location: "",
-            description: "",
-            occupation: ""
-        };
+  constructor(props) {
+    super(props);
+    this.state = {
+      user: {
+        first_name: undefined,
+        last_name: undefined,
+        location: undefined,
+        description: undefined,
+        occupation: undefined,
+        login_name: undefined,
+        password: undefined,
+        password_repeat: undefined,
+      },
+      showLoginError: false,
+      showRegistrationError: false,
+      showRegistrationSuccess: false,
+      showRegistration: false,
+    };
+    this.handleLogin = this.handleLogin.bind(this);
+    this.handleRegister = this.handleRegister.bind(this);
+    this.handleChange = this.handleChange.bind(this);
+    this.handleShowRegistration = this.handleShowRegistration.bind(this);
+  }
+
+  handleShowRegistration = () => {
+    const showRegistration = this.state.showRegistration;
+    this.setState({
+      showRegistration: !showRegistration,
+    });
+  };
+  handleLogin = () => {
+    const currentState = JSON.stringify(this.state.user);
+    axios
+      .post("/admin/login", currentState, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+      .then((response) => {
+        const user = response.data;
+        this.setState({
+          showLoginError: false,
+          showRegistrationSuccess: false,
+          showRegistrationError: false,
+        });
+        this.props.changeUser(user);
+      })
+      .catch((error) => {
+        this.setState({
+          showLoginError: true,
+          showRegistrationSuccess: false,
+          showRegistrationError: false,
+        });
+        console.log(error);
+      });
+  };
+
+  handleRegister = () => {
+    if (this.state.password !== this.state.password_repeat) {
+      alert("Passwords don't match");
+      return;
     }
+    const currentState = JSON.stringify(this.state.user);
+    axios
+      .post("/user/", currentState, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+      .then((response) => {
+        const user = response.data;
+        this.setState({
+          showRegistrationSuccess: true,
+          showRegistrationError: false,
+          showLoginError: false,
+          showRegistration: false,
+        });
+        this.props.changeUser(user);
+      })
+      .catch((error) => {
+        this.setState({
+          showRegistrationError: true,
+          showLoginError: false,
+          showRegistrationSuccess: false,
+        });
+        console.log(error);
+      });
+  };
 
-    handleLogin = (event) => {
-        event.preventDefault();
-        console.log("test");
-        console.log(this.state.login_name);
-        axios.post("/admin/login",{login_name:this.state.login_name, password:this.state.password})
-            .then( response => {
-                let user = response.data;
-                this.setState({failedLogin:""});
-                this.props.changeLoggedIn(user);
-                window.location.href = `#/users/${user._id}`;
-            })
-            .catch( err => this.setState({failedLogin:err.response.data}));
-    };
-
-    handleChangeInput = (updatedState) => {
-        this.setState(updatedState);
-    };
-
-    handleRegister = (event) => {
-        if (this.state.register_password_1 !== this.state.register_password_2){
-            this.setState({failedRegister:"Two passwords don't match! Try again!"});
-        } else {
-            event.preventDefault();
-            axios.post("/user",{
-                login_name:this.state.register_name,
-                password:this.state.register_password_1,
-                first_name:this.state.first_name,
-                last_name:this.state.last_name,
-                location:this.state.location,
-                description:this.state.description,
-                occupation:this.state.occupation
-            })
-                .then( response => {
-                    this.setState({failedRegister:"Register Successfully"});
-                    console.log(response.data);
-                    // let user = response.data;
-                    // this.props.changeLoggedIn(user);
-                })
-                .catch( err => this.setState({failedRegister:err.response.data}));
-        }
-    };
-
-
-    render() {
-
-
-        return (
-            <Grid container direction="row" justifyContent="space-between" alignItems="flex-start">
-                <Grid item xs>
-                    <Typography variant="h3" color="inherit">Login</Typography>
-                    <Typography variant="body1" color="error">{this.state.failedLogin}</Typography>
-                    <form onSubmit={this.handleLogin}>
-                        <label >
-                            <TextField
-                                required
-                                label="Username"
-                                id="Username"
-                                type="text"
-                                value={this.state.login_name}
-                                onChange = {event => this.handleChangeInput({
-                                    login_name:event.target.value
-                                })}
-                                variant="standard"
-                            />
-                        </label> <br />
-                        <label>
-                            <TextField
-                                required
-                                label="Password"
-                                type="password"
-                                value={this.state.password}
-                                onChange={event => this.handleChangeInput({
-                                    password: event.target.value
-                                })}
-                                variant="standard"
-                            />
-                        </label> <br />
-                        <Input type="submit" value="Submit" />
-                    </form>
-                </Grid>
-
-                <Grid item xs>
-                    <Typography variant="h3" color="inherit">Register</Typography>
-                    <Typography variant="body1" color="error">{this.state.failedRegister}</Typography>
-                    <form onSubmit={this.handleRegister}>
-                        <label>
-                            <TextField
-                                required
-                                label="Username"
-                                type="text"
-                                value={this.state.register_name}
-                                onChange = {event => this.handleChangeInput({
-                                    register_name:event.target.value
-                                })}
-                                variant="standard"
-                            />
-                        </label> <br />
-                        <label>
-                            <TextField
-                                required
-                                label="Password"
-                                type="password"
-                                value={this.state.register_password_1}
-                                onChange = {event => this.handleChangeInput({
-                                    register_password_1:event.target.value
-                                })}
-                                variant="standard"
-                            />
-                        </label> <br />
-                        <label>
-                            <TextField
-                                required
-                                label="Confirm Password"
-                                type="password"
-                                value={this.state.register_password_2}
-                                onChange = {event => this.handleChangeInput({
-                                    register_password_2:event.target.value
-                                })}
-                                variant="standard"
-                                // endAdornment={(
-                                //     <InputAdornment position="end">
-                                //       <IconButton
-                                //         aria-label="toggle password visibility"
-                                //         onClick={() => this.handleClickShowPassword()}
-                                //         onMouseDown={event => handleMouseDownPassword(event)}
-                                //         edge="end"
-                                //       >
-                                //     {this.state.showPassword ? <VisibilityOff /> : <Visibility />}
-                                //       </IconButton>
-                                //     </InputAdornment>
-                                // )}
-                            />
-                        </label> <br />
-                        <label>
-                            <TextField
-                                required
-                                label="First name"
-                                type="text"
-                                value={this.state.first_name}
-                                onChange={event => this.handleChangeInput({
-                                    first_name: event.target.value
-                                })}
-                                variant="standard"
-                            />
-                        </label> <br />
-                        <label>
-                            <TextField
-                                required
-                                label="Last name"
-                                type="text"
-                                value={this.state.last_name}
-                                onChange={event => this.handleChangeInput({
-                                    last_name: event.target.value
-                                })}
-                                variant="standard"
-                            />
-                        </label> <br />
-                        <label>
-                            <TextField
-                                required
-                                label="Location"
-                                type="text"
-                                value={this.state.location}
-                                onChange={event => this.handleChangeInput({
-                                    location: event.target.value
-                                })}
-                                variant="standard"
-                            />
-                        </label> <br />
-                        <label>
-                            <TextField
-                                required
-                                label="Description"
-                                type="text"
-                                value={this.state.description}
-                                onChange={event => this.handleChangeInput({
-                                    description: event.target.value
-                                })}
-                                variant="standard"
-                            />
-                        </label> <br />
-                        <label>
-                            <TextField
-                                required
-                                label="Occupation"
-                                type="text"
-                                value={this.state.occupation}
-                                onChange={event => this.handleChangeInput({
-                                    occupation: event.target.value
-                                })}
-                                variant="standard"
-                            />
-                        </label> <br />
-                        <Input type="submit" value="Register Me!" />
-                    </form>
-                </Grid>
-            </Grid>
-        );
-    }
+  handleChange(event) {
+    this.setState(
+      (state) => (state.user[event.target.id] = event.target.value)
+    );
+  }
+  componentDidMount() {
+    //this.handleAppInfoChange();
+  }
+  render() {
+    return this.state.user ? (
+      <div>
+        <Box component="form" autoComplete="off">
+          {this.state.showLoginError && (
+            <Alert severity="error">Login Failed</Alert>
+          )}
+          {this.state.showRegistrationError && (
+            <Alert severity="error">Registration Failed</Alert>
+          )}
+          {this.state.showRegistrationSuccess && (
+            <Alert severity="success">Registration Succeeded</Alert>
+          )}
+          <div>
+            <TextField
+              id="login_name"
+              label="Login Name"
+              variant="outlined"
+              fullWidth
+              margin="normal"
+              required={true}
+              onChange={this.handleChange}
+            />
+          </div>
+          <div>
+            <TextField
+              id="password"
+              label="Password"
+              variant="outlined"
+              fullWidth
+              margin="normal"
+              type="password"
+              required={true}
+              onChange={this.handleChange}
+            />
+          </div>
+          <Box mb={2}>
+            <Button
+              type="submit"
+              variant="contained"
+              onClick={this.handleLogin}>
+              Login
+            </Button>
+          </Box>
+          <Accordion
+            expanded={this.state.showRegistration}
+            onChange={this.handleShowRegistration}>
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              aria-controls="panel1a-content"
+              id="panel1a-header">
+              <Typography>User Registration</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Box>
+                <div>
+                  <TextField
+                    id="password_repeat"
+                    label="Repeat Password"
+                    variant="outlined"
+                    fullWidth
+                    margin="normal"
+                    type="password"
+                    required={this.state.showRegistration}
+                    onChange={this.handleChange}
+                  />
+                </div>
+                <div>
+                  <TextField
+                    id="first_name"
+                    label="First Name"
+                    variant="outlined"
+                    fullWidth
+                    margin="normal"
+                    autoComplete="off"
+                    required={this.state.showRegistration}
+                    onChange={this.handleChange}
+                  />
+                </div>
+                <div>
+                  <TextField
+                    id="last_name"
+                    label="Last Name"
+                    variant="outlined"
+                    fullWidth
+                    margin="normal"
+                    required={this.state.showRegistration}
+                    onChange={this.handleChange}
+                  />
+                </div>
+                <div>
+                  <TextField
+                    id="location"
+                    label="Location"
+                    variant="outlined"
+                    fullWidth
+                    margin="normal"
+                    onChange={this.handleChange}
+                  />
+                </div>
+                <div>
+                  <TextField
+                    id="description"
+                    label="Description"
+                    variant="outlined"
+                    multiline
+                    rows={4}
+                    fullWidth
+                    margin="normal"
+                    onChange={this.handleChange}
+                  />
+                </div>
+                <div>
+                  <TextField
+                    id="occupation"
+                    label="Occupation"
+                    variant="outlined"
+                    fullWidth
+                    margin="normal"
+                    onChange={this.handleChange}
+                  />
+                </div>
+                <div>
+                  <Button variant="contained" onClick={this.handleRegister}>
+                    Register Me
+                  </Button>
+                </div>
+              </Box>
+            </AccordionDetails>
+          </Accordion>
+        </Box>
+      </div>
+    ) : (
+      <div />
+    );
+  }
 }
 
 export default LoginRegister;
